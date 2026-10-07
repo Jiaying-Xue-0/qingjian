@@ -16,6 +16,14 @@ pub enum Language {
 
     /// 西班牙语。
     Spanish,
+
+    French,
+
+    German,
+
+    Portuguese,
+
+    Italian,
 }
 
 impl Language {
@@ -26,6 +34,10 @@ impl Language {
             Self::English => "en",
             Self::Japanese => "ja",
             Self::Spanish => "es",
+            Self::French => "fr",
+            Self::German => "de",
+            Self::Portuguese => "pt",
+            Self::Italian => "it",
         }
     }
 }
@@ -43,6 +55,10 @@ impl FromStr for Language {
             "en" | "english" => Ok(Self::English),
             "ja" | "jp" | "japanese" => Ok(Self::Japanese),
             "es" | "es-es" | "spanish" => Ok(Self::Spanish),
+            "fr" | "fr-fr" | "french" => Ok(Self::French),
+            "de" | "de-de" | "german" => Ok(Self::German),
+            "pt" | "pt-br" | "pt-pt" | "portuguese" => Ok(Self::Portuguese),
+            "it" | "it-it" | "italian" => Ok(Self::Italian),
             other => Err(UnknownLanguage(other.to_owned())),
         }
     }
@@ -63,8 +79,8 @@ mod tests {
 
     #[test]
     fn rejects_unknown_codes() {
-        let error = "de".parse::<Language>().unwrap_err();
-        assert_eq!(error.0, "de");
+        let error = "xx".parse::<Language>().unwrap_err();
+        assert_eq!(error.0, "xx");
     }
 
     #[test]
