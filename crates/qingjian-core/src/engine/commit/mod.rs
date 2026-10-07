@@ -171,9 +171,8 @@ impl Engine {
         }
         let log_id = self.log_commit(&keys, &candidate.text, source);
         self.meter_commit(&candidate.text, source, false);
-        // 上屏带译词的中文候选：那一刻用户看着这条译词，记进词汇（英文候选的中文释义不是学习语言，不记）
+        // 上屏带译词的候选：那一刻用户看着这条译词，记进词汇（英文候选的译词也是学习语言，一样记）
         if !self.private
-            && candidate.kind != CandidateKind::English
             && let Some(translation) = &candidate.translation
         {
             for (index, sense) in translation.senses().iter().enumerate() {
