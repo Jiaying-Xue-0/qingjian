@@ -73,7 +73,7 @@ fn adapt_case(word: &str, typed: &str) -> String {
     let first_upper = chars.next().is_some_and(|c| c.is_ascii_uppercase());
     let rest_upper = typed.len() >= 2 && typed.chars().all(|c| !c.is_ascii_lowercase());
     if first_upper && rest_upper {
-        word.to_ascii_uppercase()
+        word.to_uppercase()
     } else if first_upper {
         let mut out = String::with_capacity(word.len());
         let mut word_chars = word.chars();

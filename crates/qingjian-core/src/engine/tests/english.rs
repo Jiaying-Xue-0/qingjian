@@ -424,3 +424,103 @@ fn pinyin_like_english_tail_competes_with_the_plain_reading() {
     assert_eq!(engine.commit(&mixed), "我的database");
     assert!(engine.composition().is_empty());
 }
+
+#[derive(Default)]
+struct ListLearner {
+    words: Vec<String>,
+    list: Option<WordList>,
+}
+
+impl Learner for ListLearner {
+    fn record(&mut self, _candidate: &Candidate) {}
+    fn weight(&self, _text: &str) -> u32 {
+        0
+    }
+    fn learn_english(&mut self, word: &str) {
+        self.words.push(word.to_owned());
+        let tsv: String = self.words.iter().map(|w| format!("{w}\t{w}\t1\n")).collect();
+        self.list = WordList::parse(&tsv).ok();
+    }
+    fn user_english(&self) -> Option<&WordList> {
+        self.list.as_ref()
+    }
+}
+
+struct SchoolTranslator;
+
+impl Translator for SchoolTranslator {
+    fn language(&self) -> Language {
+        Language::English
+    }
+
+    fn translate(&self, text: &str) -> Option<Translation> {
+        (text == "école").then(|| {
+            Translation::new(
+                Language::English,
+                vec![Sense {
+                    part_of_speech: Some(PartOfSpeech::Noun),
+                    text: "school".into(),
+                    reading: None,
+                    fresh: false,
+                }],
+            )
+        })
+    }
+}
+
+#[test]
+fn a_replaced_word_list_types_accented_words_from_plain_letters() {
+    let mut engine = engine().with_english(WordList::parse("hello\thello\t4720\n").unwrap());
+    engine.set_english_mode(true);
+    let spanish = WordList::parse("también\ttambien\t6190\nmañana\tmanana\t5480\n").unwrap();
+    let english = engine.replace_english(Some(spanish));
+    assert!(english.is_some());
+    engine.set_input("tambien");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "también");
+    engine.set_input("man");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "mañana");
+    let spanish = engine.replace_english(english);
+    assert!(spanish.is_some());
+    engine.set_input("hel");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "hello");
+}
+
+#[test]
+fn words_stay_out_of_the_personal_list_while_english_learning_is_off() {
+    let mut engine = Engine::new(Dictionary::parse(SAMPLE).unwrap())
+        .with_learner(Box::new(ListLearner::default()))
+        .with_english(WordList::parse("mañana\tmanana\t5480\n").unwrap());
+    engine.set_english_mode(true);
+    engine.set_learn_english(false);
+    engine.set_input("manana");
+    let word = engine.query().unwrap().candidates.items[0].clone();
+    assert_eq!(engine.commit(&word), "mañana");
+    engine.set_input("zzyzx");
+    assert_eq!(engine.take_raw(), "zzyzx");
+    engine.replace_english(None);
+    engine.set_input("zzy");
+    assert!(engine.query().unwrap().candidates.items.iter().all(|c| c.text != "zzyzx"));
+    engine.set_input("mana");
+    assert!(engine.query().unwrap().candidates.items.iter().all(|c| c.text != "mañana"));
+    engine.set_learn_english(true);
+    engine.set_input("zzyzx");
+    engine.take_raw();
+    engine.set_input("zzy");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "zzyzx");
+}
+
+#[test]
+fn a_capitalised_accented_word_keeps_its_translation() {
+    let mut engine = engine()
+        .with_english(WordList::parse("école\tecole\t5000\n").unwrap())
+        .with_english_translator(Box::new(SchoolTranslator));
+    engine.set_english_mode(true);
+    engine.set_input("Ecole");
+    let mut query = engine.query().unwrap();
+    engine.annotate(&mut query.candidates);
+    let first = query.candidates.items[0].clone();
+    assert_eq!(first.text, "École");
+    assert_eq!(first.translation.unwrap().senses()[0].text, "school");
+    engine.set_input("ECOLE");
+    assert_eq!(engine.query().unwrap().candidates.items[0].text, "ÉCOLE");
+}

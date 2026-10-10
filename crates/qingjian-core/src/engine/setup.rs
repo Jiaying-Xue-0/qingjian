@@ -372,6 +372,14 @@ impl Engine {
         self
     }
 
+    pub fn replace_english(&mut self, words: Option<WordList>) -> Option<WordList> {
+        std::mem::replace(&mut self.english, words)
+    }
+
+    pub fn set_learn_english(&mut self, on: bool) {
+        self.learn_english = on;
+    }
+
     pub fn with_translator(mut self, translator: Box<dyn Translator>) -> Self {
         self.translator = translator;
         self

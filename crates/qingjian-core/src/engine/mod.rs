@@ -105,6 +105,7 @@ pub struct Engine {
 
     /// 英文词表，中英混输用；没有就不出英文候选。
     english: Option<WordList>,
+    learn_english: bool,
 
     /// 英文模式（壳里 Caps Lock 亮着）：缓冲区里的字母不当拼音，候选来自英文词表的补全与纠正。
     english_mode: bool,
@@ -376,6 +377,7 @@ impl Engine {
             learner: learning::MutedLearner::new(Box::new(NoLearner)),
             composition: Composition::default(),
             english: None,
+            learn_english: true,
             english_mode: false,
             punctuation: Punctuation::default(),
             full_width_punctuation: true,

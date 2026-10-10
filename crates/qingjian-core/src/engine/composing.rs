@@ -360,7 +360,7 @@ impl Engine {
         // 双拼下全部键都能解成完整音节的（`nihc`）不是英文，是用户要原样打出双拼键
         let english_word = looks_like_english_word(&raw, self.english_mode)
             && (self.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()));
-        if english_word {
+        if english_word && self.learn_english {
             self.learner.learn_english(&raw);
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
