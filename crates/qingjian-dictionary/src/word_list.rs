@@ -45,17 +45,11 @@ impl WordList {
                     reason: "frequency is not a non-negative integer",
                 })?
                 .unwrap_or(0);
-            // 同一编码取第一个（词表按常用度排序时即最常用的写法）
-            if by_code.contains_key(&code) {
-                continue;
-            }
-            by_code.insert(code.clone(), entries.len());
             entries.push((code, word.to_owned(), frequency));
         }
-        // 按编码排序后重建下标
         entries.sort_by(|a, b| a.0.cmp(&b.0));
         for (index, (code, _, _)) in entries.iter().enumerate() {
-            by_code.insert(code.clone(), index);
+            by_code.entry(code.clone()).or_insert(index);
         }
         tracing::debug!(words = entries.len(), "英文词表加载完成");
         Ok(Self { by_code, entries })
@@ -70,6 +64,15 @@ impl WordList {
         self.by_code
             .get(code)
             .map(|&index| self.entries[index].1.as_str())
+    }
+
+    pub fn variants<'a>(&'a self, code: &'a str) -> impl Iterator<Item = &'a str> + 'a {
+        self.by_code.get(code).into_iter().flat_map(move |&start| {
+            self.entries[start..]
+                .iter()
+                .take_while(move |(entry_code, _, _)| entry_code == code)
+                .map(|(_, word, _)| word.as_str())
+        })
     }
 
     /// 输入（已小写）对应的词频；词表里没有为 `None`。
@@ -124,6 +127,15 @@ mod tests {
         assert_eq!(list.get("iphone"), Some("iPhone"));
         assert_eq!(list.get("hello"), Some("hello"));
         assert_eq!(list.get("nope"), None);
+    }
+
+    #[test]
+    fn keeps_every_spelling_of_a_code_most_common_first() {
+        let list = WordList::parse("está\testa\t900\nesta\testa\t800\neste\teste\t700\n").unwrap();
+        assert_eq!(list.get("esta"), Some("está"));
+        assert_eq!(list.variants("esta").collect::<Vec<_>>(), ["está", "esta"]);
+        assert_eq!(list.variants("nope").count(), 0);
+        assert_eq!(list.complete("est", 9), ["está", "esta", "este"]);
     }
 
     #[test]

@@ -25,8 +25,13 @@ pub fn suggest(
         return Vec::new();
     }
     let mut result: Vec<String> = Vec::with_capacity(limit);
-    if let Some(word) = lists.iter().find_map(|words| words.get(&code)) {
-        result.push(adapt_case(word, typed));
+    if let Some(words) = lists.iter().find(|words| words.get(&code).is_some()) {
+        for word in words.variants(&code).take(limit) {
+            let word = adapt_case(word, typed);
+            if !result.contains(&word) {
+                result.push(word);
+            }
+        }
     }
     let ranked = |mut hits: Vec<(&str, u32)>, result: &mut Vec<String>| {
         hits.sort_by(|a, b| {
@@ -97,6 +102,14 @@ mod tests {
              iPhone\tiphone\t800\nhello\thello\t1000\nhollow\thollow\t200\nhelp\thelp\t700\n",
         )
         .unwrap()
+    }
+
+    #[test]
+    fn every_spelling_of_the_typed_letters_comes_before_completions() {
+        let list = WordList::parse("está\testa\t900\nesta\testa\t800\nestación\testacion\t700\n").unwrap();
+        assert_eq!(suggest(&[&list], "esta", |_| 0, 9), ["está", "esta", "estación"]);
+        assert_eq!(suggest(&[&list], "Esta", |_| 0, 9), ["Está", "Esta", "Estación"]);
+        assert_eq!(suggest(&[&list], "esta", |_| 0, 1), ["está"]);
     }
 
     #[test]
