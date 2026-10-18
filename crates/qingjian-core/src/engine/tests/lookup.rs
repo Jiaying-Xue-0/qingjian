@@ -422,3 +422,26 @@ fn option_arrows_move_the_cursor_by_syllable() {
     assert!(engine.move_cursor_syllable_right());
     assert_eq!(engine.composition().cursor(), "hello".len());
 }
+
+#[test]
+fn the_more_fluent_reading_wins_when_letters_split_two_ways() {
+    let dictionary = Dictionary::parse(
+        "干嘛呢\tgan ma ne\t20000\n干嘛\tgan ma\t50000\n赶\tgan\t30000\n慢\tman\t40000\n哦\te\t30000\n\
+         呢\tne\t90000\n晚安\twan an\t40000\n哇\twa\t30000\n难\tnan\t60000\n很高兴\then gao xing\t30000\n\
+         很\then\t300000\n高兴\tgao xing\t60000\n行\theng\t200000\n奥\tao\t20000\n星\txing\t40000\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary);
+    engine.set_input("ganmane");
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items[0].text, "干嘛呢");
+    assert_eq!(query.segmentations[0].joined("'"), "gan'ma'ne");
+    engine.set_input("hengaoxing");
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items[0].text, "很高兴");
+    assert_eq!(query.segmentations[0].joined("'"), "hen'gao'xing");
+    engine.set_input("wanan");
+    let query = engine.query().unwrap();
+    assert_eq!(query.candidates.items[0].text, "晚安");
+    assert_eq!(query.segmentations[0].joined("'"), "wan'an");
+}

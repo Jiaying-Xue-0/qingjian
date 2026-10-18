@@ -296,6 +296,12 @@ const MAX_CODE_LENGTH: usize = 4;
 /// 英文补全最多几条（`compa` → company / compare / …）。
 const ENGLISH_COMPLETIONS: usize = 3;
 
+const ENGLISH_WORD_FLOOR: u32 = 3800;
+
+const ENGLISH_COMPLETION_FLOOR: u32 = 3500;
+
+const VERY_COMMON_ENGLISH: u32 = 5000;
+
 /// 原样上屏的字母串至少几个字母才当英文词学：单字母（`a`、`I`）不值得记。
 const MIN_ENGLISH_WORD_LETTERS: usize = 2;
 

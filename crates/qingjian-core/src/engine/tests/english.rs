@@ -152,14 +152,8 @@ fn learned_english_word_keeps_first_place_over_the_two_letter_acronym_rule() {
         engine.commit(&candidate);
     };
 
-    // 没选过时规则照旧生效：两个字母的全大写缩写让中文先。
     engine.set_input("mp");
     assert_eq!(texts_of(&engine)[0], "门票");
-    engine.set_input("ok");
-    assert_eq!(texts_of(&engine)[0], "哦");
-
-    // 选过一次 OK：规则不再压过学习记录，`ok` 回到英文第一。
-    pick(&mut engine, "ok", "OK");
     engine.set_input("ok");
     assert_eq!(texts_of(&engine)[0], "OK");
 
@@ -207,10 +201,9 @@ fn english_completions_appear_when_pinyin_is_unlikely() {
     engine.set_input("compa");
     let all = texts_of(&engine);
     assert_eq!(&all[..3], ["company", "compare", "compass"]);
-    // xian 是干净的拼音：只有精确词 xian，不补全
     engine.set_input("xian");
     let all = texts_of(&engine);
-    assert_eq!(all.iter().filter(|t| t.starts_with("xian")).count(), 1);
+    assert_eq!(all.iter().filter(|t| t.starts_with("xian")).count(), 0);
     // 太短的前缀不补全
     engine.set_input("co");
     assert!(!texts_of(&engine).contains(&"company".to_owned()));
@@ -438,7 +431,11 @@ impl Learner for ListLearner {
     }
     fn learn_english(&mut self, word: &str) {
         self.words.push(word.to_owned());
-        let tsv: String = self.words.iter().map(|w| format!("{w}\t{w}\t1\n")).collect();
+        let tsv: String = self
+            .words
+            .iter()
+            .map(|w| format!("{w}\t{w}\t1\n"))
+            .collect();
         self.list = WordList::parse(&tsv).ok();
     }
     fn user_english(&self) -> Option<&WordList> {
@@ -499,9 +496,25 @@ fn words_stay_out_of_the_personal_list_while_english_learning_is_off() {
     assert_eq!(engine.take_raw(), "zzyzx");
     engine.replace_english(None);
     engine.set_input("zzy");
-    assert!(engine.query().unwrap().candidates.items.iter().all(|c| c.text != "zzyzx"));
+    assert!(
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .all(|c| c.text != "zzyzx")
+    );
     engine.set_input("mana");
-    assert!(engine.query().unwrap().candidates.items.iter().all(|c| c.text != "mañana"));
+    assert!(
+        engine
+            .query()
+            .unwrap()
+            .candidates
+            .items
+            .iter()
+            .all(|c| c.text != "mañana")
+    );
     engine.set_learn_english(true);
     engine.set_input("zzyzx");
     engine.take_raw();
@@ -523,4 +536,27 @@ fn a_capitalised_accented_word_keeps_its_translation() {
     assert_eq!(first.translation.unwrap().senses()[0].text, "school");
     engine.set_input("ECOLE");
     assert_eq!(engine.query().unwrap().candidates.items[0].text, "ÉCOLE");
+}
+
+#[test]
+fn rare_english_words_stay_out_of_chinese_candidates() {
+    let dictionary = Dictionary::parse(
+        "我们\two men\t90000\n什么\tshen me\t90000\n饭\tfan\t50000\n破地方\tpo di fang\t300\n",
+    )
+    .unwrap();
+    let words = WordList::parse(
+        "Wm\twm\t3300\nSm\tsm\t3710\nfan\tfan\t4920\nPDF\tpdf\t3840\nhello\thello\t4720\nKyiv\tkyiv\t3080\n",
+    )
+    .unwrap();
+    let mut engine = Engine::new(dictionary).with_english(words);
+    engine.set_input("wm");
+    assert_eq!(texts_of(&engine), ["我们"]);
+    engine.set_input("sm");
+    assert_eq!(texts_of(&engine), ["什么"]);
+    engine.set_input("fan");
+    assert!(!texts_of(&engine).contains(&"fan".to_owned()));
+    engine.set_input("pdf");
+    assert_eq!(&texts_of(&engine)[..2], ["破地方", "PDF"]);
+    engine.set_input("hello");
+    assert_eq!(texts_of(&engine)[0], "hello");
 }

@@ -4,6 +4,7 @@ use super::*;
 
 mod code;
 mod english_tail;
+mod reading;
 mod result;
 mod snapshot;
 
@@ -180,10 +181,13 @@ impl Engine {
         } else {
             None
         };
-        let (segmentations, tail): (Vec<Segmentation>, &str) = match &correction {
+        let (mut segmentations, tail): (Vec<Segmentation>, &str) = match &correction {
             Some(c) => (vec![c.segmentation.clone()], ""),
             None => (segmentations, tail),
         };
+        if decoded.is_none() && correction.is_none() && !head_wins {
+            self.prefer_fluent_reading(&mut segmentations);
+        }
         let parse = start.elapsed();
 
         let start = Instant::now();

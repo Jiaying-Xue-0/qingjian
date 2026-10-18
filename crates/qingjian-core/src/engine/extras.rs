@@ -85,13 +85,22 @@ impl Engine {
             .filter(|c| c.kind == CandidateKind::Chinese)
             .map_or(0, |c| self.learner.choice_weight(text, &c.text));
         let english_weight = word.map_or(0, |w| self.learner.weight(w));
-        // 两字母全大写缩写（mp → MP、bm → BM）让中文先：整段太短，几乎总是在打中文。
-        // 但**不压过学习记录**：`ok` / `pc` / `ll` 同样满足「两个字母的全大写缩写」，一刀切会把它们一起
-        // 翻成中文；而且选过 OK 的用户下次敲 `ok` 本该还是它排第一。所以这条只对用户**没选过**的英文词生效
-        //（`record` 对英文候选也记次数，所以 `english_weight` 就是「选过没有」）。
+        let user_words = self.learner.user_english();
+        let frequency = |code: &str| {
+            self.english
+                .as_ref()
+                .and_then(|words| words.frequency(code))
+                .unwrap_or(0)
+        };
+        let taught =
+            english_weight > 0 || user_words.is_some_and(|words| words.get(text).is_some());
+        let has_chinese = items.iter().any(|c| c.kind == CandidateKind::Chinese);
+        let word = word.filter(|_| {
+            taught || !has_chinese || (unlikely_pinyin && frequency(text) >= ENGLISH_WORD_FLOOR)
+        });
         let short_acronym = english_weight == 0
-            && text.len() <= 2
-            && word.is_some_and(|word| word.chars().all(|c| c.is_ascii_uppercase()));
+            && word.is_some_and(|word| word.chars().all(|c| c.is_ascii_uppercase()))
+            && frequency(text) < VERY_COMMON_ENGLISH;
         let english_first =
             !self.chinese_first && unlikely_pinyin && chosen <= english_weight && !short_acronym;
         let mut position = if items.is_empty() || english_first {
@@ -108,7 +117,14 @@ impl Engine {
         if unlikely_pinyin && text.len() >= MIN_COMPLETION_LETTERS {
             let mut budget = ENGLISH_COMPLETIONS;
             for words in &lists {
+                let personal = user_words.is_some_and(|user| std::ptr::eq(user, *words));
                 for word in words.complete(text, budget) {
+                    if !personal
+                        && has_chinese
+                        && frequency(&word.to_ascii_lowercase()) < ENGLISH_COMPLETION_FLOOR
+                    {
+                        continue;
+                    }
                     if items
                         .iter()
                         .any(|c| c.kind == CandidateKind::English && c.text == word)
