@@ -63,3 +63,21 @@ fn english_emoji_take_the_third_slot_like_the_system_keyboard() {
         .collect();
     assert_eq!(texts, ["pizza", "pizzas", "🍕", "pizzeria"]);
 }
+
+#[test]
+fn an_emoji_shows_once_when_two_spellings_of_a_word_bring_it() {
+    let words = WordList::parse("Liebe\tliebe\t5000\nliebe\tliebe\t4000\n").unwrap();
+    let table = EmojiTable::parse("liebe\t💕 💖\n").unwrap();
+    let mut engine = engine().with_english(words).with_emoji(table);
+    engine.set_english_mode(true);
+    engine.set_input("liebe");
+    let texts: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert_eq!(texts, ["Liebe", "liebe", "💕", "💖"]);
+}

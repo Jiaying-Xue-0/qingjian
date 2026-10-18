@@ -179,7 +179,17 @@ impl Engine {
             } else {
                 item.text.clone()
             };
-            let emojis = table.lookup(&key);
+            let emojis: Vec<String> = table
+                .lookup(&key)
+                .iter()
+                .filter(|emoji| {
+                    !items
+                        .iter()
+                        .any(|shown| shown.kind == CandidateKind::Emoji && &shown.text == *emoji)
+                })
+                .take(EMOJI_PER_WORD)
+                .cloned()
+                .collect();
             if emojis.is_empty() {
                 continue;
             }
@@ -193,14 +203,14 @@ impl Engine {
                     index += 1;
                 }
             }
-            for emoji in emojis.iter().take(EMOJI_PER_WORD) {
+            for emoji in emojis {
                 if inserted >= EMOJI_TOTAL {
                     break;
                 }
                 items.insert(
                     index,
                     Candidate {
-                        text: emoji.clone(),
+                        text: emoji,
                         kind: CandidateKind::Emoji,
                         syllables: syllables.clone(),
                         reading: Some(word.clone()),

@@ -131,6 +131,7 @@ pub fn fold_code(word: &str) -> String {
             'ñ' => vec!['n'],
             'ç' => vec!['c'],
             'ÿ' => vec!['y'],
+            'ß' => vec!['s', 's'],
             'œ' => vec!['o', 'e'],
             'æ' => vec!['a', 'e'],
             c if c.is_ascii_lowercase() => vec![c],
@@ -266,5 +267,14 @@ mod tests {
         assert!(!autocorrects(&lists, "jiaying", "the"));
         assert_eq!(fold_code("Mañana"), "manana");
         assert_eq!(fold_code("don't"), "dont");
+    }
+
+    #[test]
+    fn eszett_counts_as_double_s_when_correcting() {
+        let list = WordList::parse("Straße\tstrasse\t5000\ngroße\tgrosse\t5500\n").unwrap();
+        let lists = [&list];
+        assert_eq!(fold_code("Straße"), "strasse");
+        assert!(autocorrects(&lists, "strase", "Straße"));
+        assert!(autocorrects(&lists, "grose", "große"));
     }
 }
