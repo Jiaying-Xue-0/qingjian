@@ -226,6 +226,11 @@ impl Engine {
         self
     }
 
+    /// 换掉 emoji 表（打字语言切换时换成那种语言的表），返回原来的。
+    pub fn replace_emoji(&mut self, table: Option<EmojiTable>) -> Option<EmojiTable> {
+        std::mem::replace(&mut self.emoji, table)
+    }
+
     pub fn with_fuzzy(mut self, rules: FuzzyRules) -> Self {
         self.fuzzy = rules;
         self

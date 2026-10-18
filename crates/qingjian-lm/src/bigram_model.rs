@@ -244,6 +244,31 @@ impl BigramModel {
         self.metadata.as_ref()
     }
 
+    /// 词表里的每个词与它的一元计数（含句首标记），生成联想表这类离线数据时用。
+    pub fn vocabulary(&self) -> impl Iterator<Item = (&str, u32)> + '_ {
+        self.entries
+            .iter()
+            .map(|entry| (word_text(&self.words, entry), entry.count))
+    }
+
+    /// 语料里紧跟在 `previous` 后面的词与次数，按词编号排；`previous` 不在词表里时为空。
+    pub fn followers(&self, previous: &str) -> Vec<(&str, u32)> {
+        let Some(id) = self.word_id(previous) else {
+            return Vec::new();
+        };
+        let start = self.offsets[id as usize] as usize;
+        let end = self.offsets[id as usize + 1] as usize;
+        self.successors[start..end]
+            .iter()
+            .map(|s| {
+                (
+                    word_text(&self.words, &self.entries[s.word as usize]),
+                    s.count,
+                )
+            })
+            .collect()
+    }
+
     fn word_id(&self, word: &str) -> Option<u32> {
         hash::find(&self.index, word, |id| {
             word_text(&self.words, &self.entries[id as usize])
@@ -348,6 +373,21 @@ mod tests {
         assert!(rice > model.log_prob(Some("吃"), "烦").unwrap());
         assert!(rice > model.log_prob(Some("吃"), "饭").unwrap());
         assert_eq!(model.joined_log_prob("吃", "烦"), None);
+    }
+
+    #[test]
+    fn followers_and_vocabulary_list_what_the_corpus_saw() {
+        let model = BigramModel::parse(
+            "吃\t40\n饭\t5\n烦\t20\n吃饭\t30\n",
+            "吃\t烦\t2\n吃\t饭\t3\n",
+        )
+        .unwrap();
+        let mut after = model.followers("吃");
+        after.sort();
+        assert_eq!(after, [("烦", 2), ("饭", 3)]);
+        assert!(model.followers("饭").is_empty());
+        assert!(model.followers("没有").is_empty());
+        assert!(model.vocabulary().any(|entry| entry == ("吃饭", 30)));
     }
 
     #[test]

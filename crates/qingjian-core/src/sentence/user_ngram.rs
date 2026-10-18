@@ -193,6 +193,18 @@ impl UserNgram {
             .unwrap_or(0)
     }
 
+    /// 用户在 `previous` 后面打过的词与次数（按份记），顺序不定。
+    pub fn followers(&self, previous: &str) -> Vec<(&str, u32)> {
+        self.pairs
+            .get(previous)
+            .map(|next| {
+                next.iter()
+                    .map(|(word, count)| (word.as_str(), *count))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
     /// 不同的 (前词, 后词) 对数。
     pub fn pair_count(&self) -> usize {
         self.pairs.values().map(HashMap::len).sum()
@@ -591,6 +603,18 @@ mod tests {
         );
         assert!(unseen > base + (1.0 - Interpolation::DEFAULT.max_confidence).ln() - 1e-9);
         assert!(unseen < after_wo);
+    }
+
+    #[test]
+    fn followers_list_the_words_typed_after_a_word() {
+        let mut model = UserNgram::default();
+        model.record(Context::after("我"), "们");
+        model.record(Context::after("我"), "们");
+        model.record(Context::after("我"), "想");
+        let mut after = model.followers("我");
+        after.sort();
+        assert_eq!(after, [("们", 2), ("想", 1)]);
+        assert!(model.followers("你").is_empty());
     }
 
     #[test]
