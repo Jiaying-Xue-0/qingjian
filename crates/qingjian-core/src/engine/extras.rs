@@ -142,6 +142,11 @@ impl Engine {
         }
     }
 
+    pub fn english_autocorrects(&self, best: &str) -> bool {
+        self.english_mode
+            && english::autocorrects(&self.english_lists(), self.composition.scope(), best)
+    }
+
     /// 给英文候选用的词表，个人的在前、随包的在后；一张都没有就是空。
     pub(super) fn english_lists(&self) -> Vec<&WordList> {
         self.learner

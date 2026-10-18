@@ -45,3 +45,21 @@ fn emoji_follow_their_word_and_consume_its_syllables() {
     assert_eq!(engine.commit(&emoji), "👨‍💻");
     assert_eq!(engine.composition().text(), "zhe");
 }
+
+#[test]
+fn english_emoji_take_the_third_slot_like_the_system_keyboard() {
+    let words = WordList::parse("pizza\t\t4200\npizzas\t\t3500\npizzeria\t\t3000\n").unwrap();
+    let table = EmojiTable::parse("pizza\t🍕\n").unwrap();
+    let mut engine = engine().with_english(words).with_emoji(table);
+    engine.set_english_mode(true);
+    engine.set_input("pizz");
+    let texts: Vec<String> = engine
+        .query()
+        .unwrap()
+        .candidates
+        .items
+        .into_iter()
+        .map(|c| c.text)
+        .collect();
+    assert_eq!(texts, ["pizza", "pizzas", "🍕", "pizzeria"]);
+}

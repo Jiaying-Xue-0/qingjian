@@ -5,15 +5,18 @@
 mod edit;
 
 pub use edit::within_one_edit;
+use edit::{is_transposition, typo_cost};
 use qingjian_dictionary::WordList;
 
 /// 拼错纠正至少要几个字母：三个字母以内一处编辑能变出太多词，只补全不纠正。
 pub const MIN_CORRECTION_LETTERS: usize = 4;
 
-/// 按敲的字母给英文候选：精确词（按词表里的大小写）第一，然后是前缀补全、再是差一处编辑的词，
-/// 后两组各自按用户选过的次数、词频排序。大小写跟着敲的走：`Compa` 出 Company，`COMPA` 出 COMPANY。
-///
-/// `lists` 是若干词表，前面的优先（用户自己打过的词在前、随包词表在后）：精确词取第一个有的，补全与纠正合在一起排。
+const COMPLETION_COST: i64 = 350;
+
+const AUTOCORRECT_GAP: u32 = 1000;
+
+const AUTOCORRECT_FLOOR: u32 = 4000;
+
 pub fn suggest(
     lists: &[&WordList],
     typed: &str,
@@ -33,43 +36,107 @@ pub fn suggest(
             }
         }
     }
-    let ranked = |mut hits: Vec<(&str, u32)>, result: &mut Vec<String>| {
-        hits.sort_by(|a, b| {
-            weight(b.0)
-                .cmp(&weight(a.0))
-                .then_with(|| b.1.cmp(&a.1))
-                .then_with(|| a.0.cmp(b.0))
-        });
-        for (word, _) in hits {
-            if result.len() >= limit {
-                break;
-            }
-            let word = adapt_case(word, typed);
-            if !result.contains(&word) {
-                result.push(word);
-            }
-        }
-    };
-    let entries = || lists.iter().flat_map(|words| words.entries());
-    let completions: Vec<(&str, u32)> = entries()
-        .filter(|(entry_code, _, _)| entry_code.len() > code.len() && entry_code.starts_with(&code))
-        .map(|(_, word, frequency)| (word, frequency))
-        .collect();
-    ranked(completions, &mut result);
-    // 带数字或符号的（`foo1`、`x_y`）是标识符不是拼错的词，不去猜
     let letters_only = code.bytes().all(|b| b.is_ascii_lowercase());
-    if letters_only && code.len() >= MIN_CORRECTION_LETTERS && result.len() < limit {
-        let corrections: Vec<(&str, u32)> = entries()
-            .filter(|(entry_code, _, _)| {
-                entry_code.len().abs_diff(code.len()) <= 1
-                    && !entry_code.starts_with(&code)
-                    && within_one_edit(entry_code, &code)
-            })
-            .map(|(_, word, frequency)| (word, frequency))
-            .collect();
-        ranked(corrections, &mut result);
+    let mut hits: Vec<(&str, u32, i64)> = Vec::new();
+    for (entry_code, word, frequency) in lists.iter().flat_map(|words| words.entries()) {
+        if entry_code == code {
+            continue;
+        }
+        let cost = if entry_code.len() > code.len() && entry_code.starts_with(&code) {
+            COMPLETION_COST * (entry_code.len() - code.len()) as i64
+        } else if letters_only && corrects(&code, entry_code) {
+            match typo_cost(&code, entry_code) {
+                Some(cost) => cost,
+                None => continue,
+            }
+        } else {
+            continue;
+        };
+        hits.push((word, weight(word), i64::from(frequency) - cost));
+    }
+    hits.sort_by(|a, b| {
+        b.1.cmp(&a.1)
+            .then_with(|| b.2.cmp(&a.2))
+            .then_with(|| a.0.cmp(b.0))
+    });
+    for (word, _, _) in hits {
+        if result.len() >= limit {
+            break;
+        }
+        let word = adapt_case(word, typed);
+        if !result.contains(&word) {
+            result.push(word);
+        }
     }
     result
+}
+
+fn corrects(code: &str, entry_code: &str) -> bool {
+    if entry_code.len().abs_diff(code.len()) > 1 {
+        return false;
+    }
+    if code.len() >= MIN_CORRECTION_LETTERS {
+        return true;
+    }
+    code.len() == MIN_CORRECTION_LETTERS - 1 && is_transposition(code, entry_code)
+}
+
+pub fn autocorrects(lists: &[&WordList], typed: &str, best: &str) -> bool {
+    let code = typed.to_ascii_lowercase();
+    if best.to_lowercase() == typed.to_lowercase() || !code.bytes().all(|b| b.is_ascii_lowercase())
+    {
+        return false;
+    }
+    let spellings: Vec<(&str, u32)> = lists
+        .iter()
+        .flat_map(|words| words.spellings(&code))
+        .collect();
+    let frequency_of = |word: &str| {
+        spellings
+            .iter()
+            .filter(|(spelling, _)| spelling.to_lowercase() == word.to_lowercase())
+            .map(|(_, frequency)| *frequency)
+            .max()
+    };
+    match (frequency_of(typed), frequency_of(best)) {
+        (Some(own), Some(other)) => other >= own + AUTOCORRECT_GAP,
+        (None, Some(_)) => true,
+        (Some(_), None) => false,
+        (None, None) => {
+            if !spellings.is_empty() {
+                return false;
+            }
+            let best_code = fold_code(best);
+            corrects(&code, &best_code)
+                && typo_cost(&code, &best_code).is_some()
+                && lists
+                    .iter()
+                    .flat_map(|words| words.spellings(&best_code))
+                    .any(|(word, frequency)| {
+                        word.to_lowercase() == best.to_lowercase() && frequency >= AUTOCORRECT_FLOOR
+                    })
+        }
+    }
+}
+
+pub fn fold_code(word: &str) -> String {
+    word.chars()
+        .flat_map(char::to_lowercase)
+        .flat_map(|c| match c {
+            'á' | 'à' | 'â' | 'ä' | 'ã' | 'å' | 'ā' => vec!['a'],
+            'é' | 'è' | 'ê' | 'ë' | 'ē' | 'ė' | 'ę' => vec!['e'],
+            'í' | 'ì' | 'î' | 'ï' | 'ī' | 'į' => vec!['i'],
+            'ó' | 'ò' | 'ô' | 'ö' | 'õ' | 'ø' | 'ō' => vec!['o'],
+            'ú' | 'ù' | 'û' | 'ü' | 'ū' => vec!['u'],
+            'ñ' => vec!['n'],
+            'ç' => vec!['c'],
+            'ÿ' => vec!['y'],
+            'œ' => vec!['o', 'e'],
+            'æ' => vec!['a', 'e'],
+            c if c.is_ascii_lowercase() => vec![c],
+            _ => Vec::new(),
+        })
+        .collect()
 }
 
 /// 词表里的写法按敲的大小写调整：全大写就全大写，首字母大写就首字母大写，其余照词表（iPhone 仍是 iPhone）。
@@ -157,5 +224,47 @@ mod tests {
         // 精确词后面跟着差一处编辑的 gift
         assert_eq!(suggest(&[&user, &main], "gist", |_| 0, 9), ["gist", "gift"]);
         assert_eq!(suggest(&[&main], "gis", |_| 0, 9), ["gist"]);
+    }
+
+    fn product_words() -> WordList {
+        WordList::parse(
+            "the\tthe\t7730\nTehran\ttehran\t3900\nhello\thello\t4720\nhelp\thelp\t5700\nheld\theld\t5300\n\
+             helot\thelot\t2000\ndon't\tdont\t5900\ncan't\tcant\t5900\ncant\tcant\t3000\nit's\tits\t6100\n\
+             its\tits\t5800\nI'm\tim\t6200\nyou\tyou\t7400\nmañana\tmanana\t5100\nestá\testa\t6000\n\
+             esta\testa\t5900\nbecause\tbecause\t6000\nzest\tzest\t3200\n",
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn common_corrections_beat_rare_completions() {
+        let list = product_words();
+        assert_eq!(suggest(&[&list], "teh", |_| 0, 3)[0], "the");
+        assert_eq!(suggest(&[&list], "yuo", |_| 0, 3)[0], "you");
+        assert_eq!(suggest(&[&list], "helo", |_| 0, 3)[0], "hello");
+        assert_eq!(suggest(&[&list], "becuase", |_| 0, 3)[0], "because");
+        assert_eq!(suggest(&[&list], "dont", |_| 0, 3)[0], "don't");
+        assert_eq!(suggest(&[&list], "im", |_| 0, 3)[0], "I'm");
+    }
+
+    #[test]
+    fn space_corrects_only_words_that_are_clearly_wrong() {
+        let list = product_words();
+        let lists = [&list];
+        assert!(autocorrects(&lists, "teh", "the"));
+        assert!(autocorrects(&lists, "helo", "hello"));
+        assert!(autocorrects(&lists, "dont", "don't"));
+        assert!(autocorrects(&lists, "Dont", "Don't"));
+        assert!(autocorrects(&lists, "im", "I'm"));
+        assert!(autocorrects(&lists, "cant", "can't"));
+        assert!(autocorrects(&lists, "manana", "mañana"));
+        assert!(!autocorrects(&lists, "its", "it's"));
+        assert!(!autocorrects(&lists, "esta", "está"));
+        assert!(!autocorrects(&lists, "hello", "hello"));
+        assert!(!autocorrects(&lists, "tehr", "Tehran"));
+        assert!(!autocorrects(&lists, "zesty", "zest"));
+        assert!(!autocorrects(&lists, "jiaying", "the"));
+        assert_eq!(fold_code("Mañana"), "manana");
+        assert_eq!(fold_code("don't"), "dont");
     }
 }

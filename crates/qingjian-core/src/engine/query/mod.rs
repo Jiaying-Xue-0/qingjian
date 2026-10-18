@@ -3,8 +3,11 @@
 use super::*;
 
 mod code;
+mod context;
 mod english_tail;
 mod reading;
+
+pub(super) use context::reading_totals;
 mod result;
 mod snapshot;
 
@@ -265,12 +268,10 @@ impl Engine {
             let choice = letters
                 .get(..covered)
                 .map_or(0, |input| self.learner.choice_weight(input, hit.text));
-            let log_prob = sentence::transition_log_prob(
-                &*self.language_model,
-                self.personal(),
-                self.chain.context(),
+            let log_prob = self.context_log_prob(
                 hit.text,
                 sentence::fallback_log_prob(hit.frequency, log_total),
+                self.reading_log_share(hit.text, hit.frequency),
             );
             (choice, log_prob)
         });
@@ -432,7 +433,7 @@ impl Engine {
     }
 
     /// 英文模式：敲的字母原样显示，候选是英文词表的精确词、前缀补全与拼错纠正（见 [`english::suggest`]），
-    /// 词表没装就没有候选。emoji 照配，但排在所有词后面：选词靠上下键，emoji 夹在词中间会挡路。
+    /// 词表没装就没有候选。
     pub(super) fn query_english(&self, scope: &str, rest: String, start: Instant) -> Query {
         let mut items: Vec<Candidate> = english::suggest(
             &self.english_lists(),
@@ -451,7 +452,11 @@ impl Engine {
         })
         .collect();
         self.insert_emoji(&mut items);
-        items.sort_by_key(|c| c.kind == CandidateKind::Emoji);
+        let (emoji, mut items): (Vec<Candidate>, Vec<Candidate>) = items
+            .into_iter()
+            .partition(|c| c.kind == CandidateKind::Emoji);
+        let slot = items.len().min(ENGLISH_EMOJI_SLOT);
+        items.splice(slot..slot, emoji);
         Query {
             segmentations: Vec::new(),
             candidates: CandidateList { items },

@@ -304,6 +304,18 @@ impl LanguageModel for BigramModel {
         };
         Some(probability.max(f64::MIN_POSITIVE).ln())
     }
+
+    fn joined_log_prob(&self, previous: &str, word: &str) -> Option<f64> {
+        let joined = self.word_id(&format!("{previous}{word}"))?;
+        let previous = self.word_id(previous)?;
+        let id = self.word_id(word)?;
+        let joined = f64::from(self.entries[joined as usize].count);
+        let pair = self.bigram(previous, id).map_or(0.0, f64::from);
+        let previous = f64::from(self.entries[previous as usize].count);
+        let unigram = f64::from(self.entries[id as usize].count) / self.total;
+        let probability = LAMBDA * (pair + joined) / (previous + joined) + (1.0 - LAMBDA) * unigram;
+        Some(probability.max(f64::MIN_POSITIVE).ln())
+    }
 }
 
 #[cfg(test)]
@@ -327,6 +339,15 @@ mod tests {
         let alone = model.log_prob(Some("火星"), "想").unwrap();
         assert!((alone - (30.0_f64 / 101.0).ln()).abs() < 1e-9);
         assert_eq!(model.log_prob(Some("我"), "火星"), None);
+    }
+
+    #[test]
+    fn a_joined_word_counts_as_its_parts_following_each_other() {
+        let model = BigramModel::parse("吃\t40\n饭\t5\n烦\t20\n吃饭\t30\n", "吃\t烦\t2\n").unwrap();
+        let rice = model.joined_log_prob("吃", "饭").unwrap();
+        assert!(rice > model.log_prob(Some("吃"), "烦").unwrap());
+        assert!(rice > model.log_prob(Some("吃"), "饭").unwrap());
+        assert_eq!(model.joined_log_prob("吃", "烦"), None);
     }
 
     #[test]

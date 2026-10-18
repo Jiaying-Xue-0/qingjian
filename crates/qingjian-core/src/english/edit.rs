@@ -47,6 +47,72 @@ fn one_insertion(short: &[u8], long: &[u8]) -> bool {
     true
 }
 
+pub const TRANSPOSITION_COST: i64 = 800;
+pub const DOUBLED_LETTER_COST: i64 = 300;
+pub const NEAR_KEY_COST: i64 = 1500;
+pub const INSERTION_COST: i64 = 1200;
+pub const SUBSTITUTION_COST: i64 = 2000;
+
+const KEY_ROWS: [&[u8]; 3] = [b"qwertyuiop", b"asdfghjkl", b"zxcvbnm"];
+const ROW_OFFSETS: [f32; 3] = [0.0, 0.5, 1.5];
+
+pub fn typo_cost(typed: &str, word: &str) -> Option<i64> {
+    let (typed, word) = (typed.as_bytes(), word.as_bytes());
+    if typed.len() == word.len() {
+        let differences: Vec<usize> = (0..typed.len()).filter(|&i| typed[i] != word[i]).collect();
+        return match differences.as_slice() {
+            [i] if near_keys(typed[*i], word[*i]) => Some(NEAR_KEY_COST),
+            [_] => Some(SUBSTITUTION_COST),
+            [i, j] if *j == i + 1 && typed[*i] == word[*j] && typed[*j] == word[*i] => {
+                Some(TRANSPOSITION_COST)
+            }
+            _ => None,
+        };
+    }
+    let (short, long) = if typed.len() < word.len() {
+        (typed, word)
+    } else {
+        (word, typed)
+    };
+    if long.len() != short.len() + 1 {
+        return None;
+    }
+    let k = (0..short.len())
+        .find(|&i| short[i] != long[i])
+        .unwrap_or(short.len());
+    if long[..k] != short[..k] || long[k + 1..] != short[k..] {
+        return None;
+    }
+    let doubled =
+        (k > 0 && long[k] == long[k - 1]) || (k + 1 < long.len() && long[k] == long[k + 1]);
+    Some(if doubled {
+        DOUBLED_LETTER_COST
+    } else {
+        INSERTION_COST
+    })
+}
+
+pub fn is_transposition(typed: &str, word: &str) -> bool {
+    typo_cost(typed, word) == Some(TRANSPOSITION_COST) && typed.len() == word.len()
+}
+
+fn key_position(key: u8) -> Option<(usize, f32)> {
+    KEY_ROWS.iter().enumerate().find_map(|(row, keys)| {
+        keys.iter()
+            .position(|&k| k == key)
+            .map(|column| (row, column as f32 + ROW_OFFSETS[row]))
+    })
+}
+
+fn near_keys(a: u8, b: u8) -> bool {
+    match (key_position(a), key_position(b)) {
+        (Some((row_a, x_a)), Some((row_b, x_b))) => {
+            row_a.abs_diff(row_b) <= 1 && (x_a - x_b).abs() <= 1.0
+        }
+        _ => false,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -69,5 +135,19 @@ mod tests {
         assert!(!within_one_edit("he", "hello"));
         assert!(!within_one_edit("hello", "olleh"));
         assert!(!within_one_edit("abcd", "acbe"));
+    }
+
+    #[test]
+    fn typo_costs_follow_how_people_mistype() {
+        assert_eq!(typo_cost("teh", "the"), Some(TRANSPOSITION_COST));
+        assert_eq!(typo_cost("helo", "hello"), Some(DOUBLED_LETTER_COST));
+        assert_eq!(typo_cost("untill", "until"), Some(DOUBLED_LETTER_COST));
+        assert_eq!(typo_cost("helo", "help"), Some(NEAR_KEY_COST));
+        assert_eq!(typo_cost("helo", "held"), Some(SUBSTITUTION_COST));
+        assert_eq!(typo_cost("realy", "real"), Some(INSERTION_COST));
+        assert_eq!(typo_cost("tommorow", "tomorrow"), None);
+        assert_eq!(typo_cost("hello", "hello"), None);
+        assert!(is_transposition("yuo", "you"));
+        assert!(!is_transposition("yoo", "you"));
     }
 }

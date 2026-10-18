@@ -47,12 +47,10 @@ impl Engine {
             let choice = letters
                 .get(..item.coverage)
                 .map_or(0, |input| self.learner.choice_weight(input, item.hit.text));
-            let log_prob = sentence::transition_log_prob(
-                &*self.language_model,
-                self.personal(),
-                self.chain.context(),
+            let log_prob = self.context_log_prob(
                 item.hit.text,
                 sentence::fallback_log_prob(item.hit.frequency, log_total),
+                0.0,
             );
             (choice, log_prob)
         });

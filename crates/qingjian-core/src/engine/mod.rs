@@ -83,6 +83,8 @@ pub struct Engine {
     /// 静态词库。
     dictionary: Dictionary,
 
+    reading_totals: HashMap<char, u64>,
+
     /// 译文提供方，缺省为 [`NoTranslator`]。
     translator: Box<dyn Translator>,
 
@@ -308,6 +310,8 @@ const MIN_ENGLISH_WORD_LETTERS: usize = 2;
 /// 英文模式一次最多给几条候选：两页足够，再往后没人翻。
 const ENGLISH_MODE_CANDIDATES: usize = 18;
 
+const ENGLISH_EMOJI_SLOT: usize = 2;
+
 /// 英文补全至少要几个字母：太短的前缀谁都像。
 const MIN_COMPLETION_LETTERS: usize = 3;
 
@@ -374,8 +378,10 @@ pub const RESCORE_CONTEXT_CHARS: usize = 64;
 
 impl Engine {
     pub fn new(dictionary: Dictionary) -> Self {
+        let reading_totals = query::reading_totals(&dictionary);
         Self {
             dictionary,
+            reading_totals,
             extra_dictionaries: Vec::new(),
             translator: Box::new(NoTranslator),
             english_translator: Box::new(NoTranslator),

@@ -75,6 +75,15 @@ impl WordList {
         })
     }
 
+    pub fn spellings<'a>(&'a self, code: &'a str) -> impl Iterator<Item = (&'a str, u32)> + 'a {
+        self.by_code.get(code).into_iter().flat_map(move |&start| {
+            self.entries[start..]
+                .iter()
+                .take_while(move |(entry_code, _, _)| entry_code == code)
+                .map(|(_, word, frequency)| (word.as_str(), *frequency))
+        })
+    }
+
     /// 输入（已小写）对应的词频；词表里没有为 `None`。
     pub fn frequency(&self, code: &str) -> Option<u32> {
         self.by_code.get(code).map(|&index| self.entries[index].2)

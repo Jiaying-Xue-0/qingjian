@@ -445,3 +445,55 @@ fn the_more_fluent_reading_wins_when_letters_split_two_ways() {
     assert_eq!(query.candidates.items[0].text, "晚安");
     assert_eq!(query.segmentations[0].joined("'"), "wan'an");
 }
+
+struct RiceModel;
+
+impl LanguageModel for RiceModel {
+    fn log_prob(&self, previous: Option<&str>, word: &str) -> Option<f64> {
+        match (previous, word) {
+            (Some("吃"), "烦") => Some(-6.0),
+            (Some("吃"), "饭") => Some(-9.0),
+            _ => None,
+        }
+    }
+
+    fn joined_log_prob(&self, previous: &str, word: &str) -> Option<f64> {
+        (previous == "吃" && word == "饭").then_some(-2.0)
+    }
+}
+
+#[test]
+fn the_word_that_completes_the_previous_one_comes_first() {
+    let dictionary =
+        Dictionary::parse("吃\tchi\t5000\n烦\tfan\t3000\n饭\tfan\t2000\n吃饭\tchi fan\t900\n")
+            .unwrap();
+    let mut engine = Engine::new(dictionary).with_language_model(Box::new(RiceModel));
+    engine.set_input("chi");
+    let eat = engine.query().unwrap().candidates.items[0].clone();
+    assert_eq!(engine.commit(&eat), "吃");
+    engine.set_input("fan");
+    assert_eq!(texts_of(&engine)[0], "饭");
+}
+
+struct WhoModel;
+
+impl LanguageModel for WhoModel {
+    fn log_prob(&self, _previous: Option<&str>, word: &str) -> Option<f64> {
+        match word {
+            "说" => Some(-6.1),
+            "谁" => Some(-6.9),
+            _ => None,
+        }
+    }
+}
+
+#[test]
+fn a_rare_reading_of_a_common_character_stays_behind() {
+    let dictionary =
+        Dictionary::parse("说\tshuo\t800000\n说\tshui\t40000\n谁\tshui\t170000\n").unwrap();
+    let mut engine = Engine::new(dictionary).with_language_model(Box::new(WhoModel));
+    engine.set_input("shui");
+    assert_eq!(texts_of(&engine), ["谁", "说"]);
+    engine.set_input("shuo");
+    assert_eq!(texts_of(&engine)[0], "说");
+}
