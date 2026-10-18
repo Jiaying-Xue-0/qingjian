@@ -436,9 +436,13 @@ impl Engine {
     }
 
     pub fn with_learner(mut self, learner: Box<dyn Learner>) -> Self {
+        self.set_learner(learner);
+        self
+    }
+
+    pub fn set_learner(&mut self, learner: Box<dyn Learner>) {
         self.learner.replace(learner);
         self.forget_span_cache();
-        self
     }
 
     pub fn with_input_logger(mut self, logger: Box<dyn InputLogger>) -> Self {
