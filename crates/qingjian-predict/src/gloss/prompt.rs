@@ -39,11 +39,47 @@ pub const SPANISH_SYSTEM_PROMPT: &str = "你是汉西词典编纂者。给每个
 输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"desarrollar\"},{\"t\":\"explotar\"}]}]}。\n\
 items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
 
+pub const FRENCH_SYSTEM_PROMPT: &str = "你是汉法词典编纂者。给每个中文词写最简短的法文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- senses：1 到 2 条最贴切的法文对应词，按常用度排；每条不超过 3 个法文单词；动词用原形（不定式），名词用单数，形容词用阳性单数；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"développer\"},{\"t\":\"exploiter\"}]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
+pub const GERMAN_SYSTEM_PROMPT: &str = "你是汉德词典编纂者。给每个中文词写最简短的德文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- senses：1 到 2 条最贴切的德文对应词，按常用度排；每条不超过 3 个德文单词；动词用原形（不定式），名词用单数并首字母大写，形容词用原级；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"entwickeln\"},{\"t\":\"erschließen\"}]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
+pub const PORTUGUESE_SYSTEM_PROMPT: &str = "你是汉葡词典编纂者。给每个中文词写最简短的葡萄牙文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- senses：1 到 2 条最贴切的葡萄牙文对应词，按常用度排；每条不超过 3 个葡萄牙文单词；动词用原形（不定式），名词用单数，形容词用阳性单数；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"desenvolver\"},{\"t\":\"explorar\"}]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
+pub const ITALIAN_SYSTEM_PROMPT: &str = "你是汉意词典编纂者。给每个中文词写最简短的意大利文对应词，供拼音输入法在候选词旁边一行显示，所以只要词、不要解释。\n\
+规则：\n\
+- pos：这个中文词最主要的词性，只能是 n. v. adj. adv. pron. prep. conj. num. m. part. int. phr. 之一（m. 量词，part. 助词，phr. 短语或成语）。\n\
+- senses：1 到 2 条最贴切的意大利文对应词，按常用度排；每条不超过 3 个意大利文单词；动词用原形（不定式），名词用单数，形容词用阳性单数；不要括号、不要解释、不要例句。\n\
+- 人名地名等专名照译；多义词只取最常用的义项；网络用语、方言也要给最接近的说法；没有把握也要给最可能的答案，不要留空。\n\
+输出严格的 JSON：{\"items\":[{\"w\":\"开发\",\"pos\":\"v.\",\"senses\":[{\"t\":\"sviluppare\"},{\"t\":\"sfruttare\"}]}]}。\n\
+items 与输入的词一一对应、顺序一致、每个词恰好一项，w 必须原样照抄输入的词。";
+
 /// 学习语言对应的系统提示；中文没有（不会请求）。
 pub fn system_prompt(language: Language) -> &'static str {
     match language {
         Language::Japanese => JAPANESE_SYSTEM_PROMPT,
         Language::Spanish => SPANISH_SYSTEM_PROMPT,
+        Language::French => FRENCH_SYSTEM_PROMPT,
+        Language::German => GERMAN_SYSTEM_PROMPT,
+        Language::Portuguese => PORTUGUESE_SYSTEM_PROMPT,
+        Language::Italian => ITALIAN_SYSTEM_PROMPT,
         Language::English | Language::Chinese => ENGLISH_SYSTEM_PROMPT,
     }
 }
@@ -143,7 +179,11 @@ fn clean_text(raw: &str, language: Language) -> Option<String> {
             text.chars().count() <= MAX_JAPANESE_CHARS
                 && !text.contains(['(', '（', '、', '，', ','])
         }
-        Language::Spanish => {
+        Language::Spanish
+        | Language::French
+        | Language::German
+        | Language::Portuguese
+        | Language::Italian => {
             text.chars().count() <= MAX_SPANISH_CHARS
                 && text.split_whitespace().count() <= 4
                 && text.chars().all(is_spanish_char)
@@ -243,5 +283,30 @@ mod tests {
         assert_eq!(clean_text("开发", Language::Spanish), None);
         assert_eq!(clean_text("разработка", Language::Spanish), None);
         assert!(system_prompt(Language::Spanish).contains("西班牙文"));
+    }
+
+    #[test]
+    fn french_german_portuguese_and_italian_get_their_own_prompt_and_keep_their_letters() {
+        assert!(system_prompt(Language::French).contains("法文"));
+        assert!(system_prompt(Language::German).contains("德文"));
+        assert!(system_prompt(Language::Portuguese).contains("葡萄牙文"));
+        assert!(system_prompt(Language::Italian).contains("意大利文"));
+        assert_eq!(
+            clean_text("développer", Language::French).as_deref(),
+            Some("développer")
+        );
+        assert_eq!(
+            clean_text("Straße", Language::German).as_deref(),
+            Some("Straße")
+        );
+        assert_eq!(
+            clean_text("coração", Language::Portuguese).as_deref(),
+            Some("coração")
+        );
+        assert_eq!(
+            clean_text("perché", Language::Italian).as_deref(),
+            Some("perché")
+        );
+        assert_eq!(clean_text("开发", Language::German), None);
     }
 }
