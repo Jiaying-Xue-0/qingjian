@@ -38,21 +38,24 @@ pub fn suggest(
     }
     let letters_only = code.bytes().all(|b| b.is_ascii_lowercase());
     let mut hits: Vec<(&str, u32, i64)> = Vec::new();
-    for (entry_code, word, frequency) in lists.iter().flat_map(|words| words.entries()) {
-        if entry_code == code {
+    for words in lists {
+        for (entry_code, word, frequency) in words.prefixed(&code) {
+            if entry_code.len() > code.len() {
+                let cost = COMPLETION_COST * (entry_code.len() - code.len()) as i64;
+                hits.push((word, weight(word), i64::from(frequency) - cost));
+            }
+        }
+        if !letters_only {
             continue;
         }
-        let cost = if entry_code.len() > code.len() && entry_code.starts_with(&code) {
-            COMPLETION_COST * (entry_code.len() - code.len()) as i64
-        } else if letters_only && corrects(&code, entry_code) {
-            match typo_cost(&code, entry_code) {
-                Some(cost) => cost,
-                None => continue,
+        for (entry_code, word, frequency) in words.one_edit_away(&code) {
+            if entry_code.starts_with(&code) || !corrects(&code, entry_code) {
+                continue;
             }
-        } else {
-            continue;
-        };
-        hits.push((word, weight(word), i64::from(frequency) - cost));
+            if let Some(cost) = typo_cost(&code, entry_code) {
+                hits.push((word, weight(word), i64::from(frequency) - cost));
+            }
+        }
     }
     hits.sort_by(|a, b| {
         b.1.cmp(&a.1)

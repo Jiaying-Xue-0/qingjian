@@ -1,23 +1,26 @@
-use std::collections::HashMap;
+use std::ops::Range;
 use std::path::Path;
 
 use crate::error::DictionaryError;
+
+type Span = (u32, u32);
 
 /// 英文词表：按小写编码查原样大小写的词，也能按前缀补全。
 /// 文件格式 TSV：`词\t编码[\t词频]`（编码缺省为词的小写，词频缺省 0）。
 #[derive(Debug, Default)]
 pub struct WordList {
-    /// 小写编码 → 在 `entries` 里的下标。
-    by_code: HashMap<String, usize>,
+    text: String,
 
     /// (编码, 原样词, 词频)，按编码字节序排好，前缀补全二分定位。
-    entries: Vec<(String, String, u32)>,
+    entries: Vec<(Span, Span, u32)>,
+
+    alphabet: Vec<u8>,
 }
 
 impl WordList {
     pub fn parse(source: &str) -> Result<Self, DictionaryError> {
-        let mut by_code: HashMap<String, usize> = HashMap::new();
-        let mut entries: Vec<(String, String, u32)> = Vec::new();
+        let mut text = String::with_capacity(source.len());
+        let mut entries: Vec<(Span, Span, u32)> = Vec::new();
         for (index, raw) in source.lines().enumerate() {
             let line = raw.trim();
             if line.is_empty() || line.starts_with('#') {
@@ -45,14 +48,29 @@ impl WordList {
                     reason: "frequency is not a non-negative integer",
                 })?
                 .unwrap_or(0);
-            entries.push((code, word.to_owned(), frequency));
+            let code = append(&mut text, &code);
+            let word = if word == slice(&text, code) {
+                code
+            } else {
+                append(&mut text, word)
+            };
+            entries.push((code, word, frequency));
         }
-        entries.sort_by(|a, b| a.0.cmp(&b.0));
-        for (index, (code, _, _)) in entries.iter().enumerate() {
-            by_code.entry(code.clone()).or_insert(index);
-        }
+        entries.sort_by(|a, b| slice(&text, a.0).cmp(slice(&text, b.0)));
+        let used = entries
+            .iter()
+            .flat_map(|&(code, _, _)| slice(&text, code).bytes())
+            .filter(u8::is_ascii)
+            .fold(0u128, |used, byte| used | (1 << byte));
+        let alphabet = (0..128u8).filter(|&byte| used & (1 << byte) != 0).collect();
+        text.shrink_to_fit();
+        entries.shrink_to_fit();
         tracing::debug!(words = entries.len(), "英文词表加载完成");
-        Ok(Self { by_code, entries })
+        Ok(Self {
+            text,
+            entries,
+            alphabet,
+        })
     }
 
     pub fn from_path(path: impl AsRef<Path>) -> Result<Self, DictionaryError> {
@@ -61,32 +79,37 @@ impl WordList {
 
     /// 输入（已小写）对应的英文词。
     pub fn get(&self, code: &str) -> Option<&str> {
-        self.by_code
-            .get(code)
-            .map(|&index| self.entries[index].1.as_str())
+        self.exactly(code)
+            .first()
+            .map(|&(_, word, _)| self.at(word))
     }
 
     pub fn variants<'a>(&'a self, code: &'a str) -> impl Iterator<Item = &'a str> + 'a {
-        self.by_code.get(code).into_iter().flat_map(move |&start| {
-            self.entries[start..]
-                .iter()
-                .take_while(move |(entry_code, _, _)| entry_code == code)
-                .map(|(_, word, _)| word.as_str())
-        })
+        self.exactly(code).iter().map(|&(_, word, _)| self.at(word))
     }
 
     pub fn spellings<'a>(&'a self, code: &'a str) -> impl Iterator<Item = (&'a str, u32)> + 'a {
-        self.by_code.get(code).into_iter().flat_map(move |&start| {
-            self.entries[start..]
-                .iter()
-                .take_while(move |(entry_code, _, _)| entry_code == code)
-                .map(|(_, word, frequency)| (word.as_str(), *frequency))
-        })
+        self.exactly(code)
+            .iter()
+            .map(|&(_, word, frequency)| (self.at(word), frequency))
     }
 
     /// 输入（已小写）对应的词频；词表里没有为 `None`。
     pub fn frequency(&self, code: &str) -> Option<u32> {
-        self.by_code.get(code).map(|&index| self.entries[index].2)
+        self.exactly(code)
+            .first()
+            .map(|&(_, _, frequency)| frequency)
+    }
+
+    pub fn prefixed<'a>(
+        &'a self,
+        prefix: &str,
+    ) -> impl Iterator<Item = (&'a str, &'a str, u32)> + use<'a> {
+        let start = self.position(|code| code < prefix);
+        let end = self.position(|code| code < prefix || code.starts_with(prefix));
+        self.entries[start..end]
+            .iter()
+            .map(|&entry| self.row(entry))
     }
 
     /// 以 `prefix` 开头（不含正好相等的）的词里词频最高的 `limit` 个，按词频降序。
@@ -94,26 +117,61 @@ impl WordList {
         if prefix.is_empty() || limit == 0 {
             return Vec::new();
         }
-        let start = self
-            .entries
-            .partition_point(|(code, _, _)| code.as_str() < prefix);
-        let mut hits: Vec<&(String, String, u32)> = self.entries[start..]
-            .iter()
-            .take_while(|(code, _, _)| code.starts_with(prefix))
-            .filter(|(code, _, _)| code != prefix)
+        let mut hits: Vec<(&str, &str, u32)> = self
+            .prefixed(prefix)
+            .filter(|(code, _, _)| *code != prefix)
             .collect();
-        hits.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(&b.0)));
+        hits.sort_by(|a, b| b.2.cmp(&a.2).then_with(|| a.0.cmp(b.0)));
         hits.into_iter()
             .take(limit)
-            .map(|(_, word, _)| word.as_str())
+            .map(|(_, word, _)| word)
             .collect()
     }
 
-    /// 全部词目：(小写编码, 原样词, 词频)，按编码字节序。
-    pub fn entries(&self) -> impl Iterator<Item = (&str, &str, u32)> {
-        self.entries
-            .iter()
-            .map(|(code, word, frequency)| (code.as_str(), word.as_str(), *frequency))
+    pub fn one_edit_away<'a>(
+        &'a self,
+        code: &str,
+    ) -> impl Iterator<Item = (&'a str, &'a str, u32)> + use<'a> {
+        let typed = code.as_bytes();
+        let mut found: Vec<usize> = Vec::new();
+        let mut look_up = |candidate: &[u8]| {
+            if let Ok(candidate) = std::str::from_utf8(candidate) {
+                found.extend(self.range(candidate));
+            }
+        };
+        let mut candidate: Vec<u8> = Vec::with_capacity(typed.len() + 1);
+        for at in 0..typed.len() {
+            candidate.clear();
+            candidate.extend_from_slice(&typed[..at]);
+            candidate.extend_from_slice(&typed[at + 1..]);
+            look_up(&candidate);
+            candidate.clear();
+            candidate.extend_from_slice(typed);
+            if at + 1 < typed.len() && typed[at] != typed[at + 1] {
+                candidate.swap(at, at + 1);
+                look_up(&candidate);
+                candidate.swap(at, at + 1);
+            }
+            for &byte in self.alphabet.iter().filter(|&&byte| byte != typed[at]) {
+                candidate[at] = byte;
+                look_up(&candidate);
+            }
+        }
+        for at in 0..=typed.len() {
+            candidate.clear();
+            candidate.extend_from_slice(&typed[..at]);
+            candidate.push(0);
+            candidate.extend_from_slice(&typed[at..]);
+            for &byte in &self.alphabet {
+                candidate[at] = byte;
+                look_up(&candidate);
+            }
+        }
+        found.sort_unstable();
+        found.dedup();
+        found
+            .into_iter()
+            .map(move |index| self.row(self.entries[index]))
     }
 
     pub fn len(&self) -> usize {
@@ -123,6 +181,42 @@ impl WordList {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+
+    fn position(&self, before: impl Fn(&str) -> bool) -> usize {
+        self.entries
+            .partition_point(|&(code, _, _)| before(self.at(code)))
+    }
+
+    fn range(&self, code: &str) -> Range<usize> {
+        let start = self.position(|entry| entry < code);
+        let count = self.entries[start..]
+            .iter()
+            .take_while(|&&(entry, _, _)| self.at(entry) == code)
+            .count();
+        start..start + count
+    }
+
+    fn exactly(&self, code: &str) -> &[(Span, Span, u32)] {
+        &self.entries[self.range(code)]
+    }
+
+    fn at(&self, span: Span) -> &str {
+        slice(&self.text, span)
+    }
+
+    fn row(&self, (code, word, frequency): (Span, Span, u32)) -> (&str, &str, u32) {
+        (self.at(code), self.at(word), frequency)
+    }
+}
+
+fn append(text: &mut String, part: &str) -> Span {
+    let start = text.len() as u32;
+    text.push_str(part);
+    (start, text.len() as u32)
+}
+
+fn slice(text: &str, (start, end): Span) -> &str {
+    &text[start as usize..end as usize]
 }
 
 #[cfg(test)]
@@ -160,5 +254,46 @@ mod tests {
         );
         assert!(list.complete("zzz", 3).is_empty());
         assert!(list.complete("", 3).is_empty());
+    }
+
+    #[test]
+    fn lists_every_code_under_a_prefix_in_code_order() {
+        let list = WordList::parse("compare\ncom\ncone\ncomma\ncompany\n").unwrap();
+        let codes: Vec<&str> = list.prefixed("com").map(|(code, _, _)| code).collect();
+        assert_eq!(codes, ["com", "comma", "company", "compare"]);
+        assert_eq!(list.prefixed("x").count(), 0);
+    }
+
+    #[test]
+    fn finds_every_code_one_edit_away() {
+        let list =
+            WordList::parse("hello\nhelp\nheld\nhel\nheol\nhole\nhel-o\nworld\nhelo\nHELO\thelo\n")
+                .unwrap();
+        let codes: Vec<&str> = list
+            .one_edit_away("helo")
+            .map(|(code, _, _)| code)
+            .collect();
+        assert_eq!(codes, ["hel", "hel-o", "held", "hello", "help", "heol"]);
+        let hello: Vec<&str> = list
+            .one_edit_away("hello")
+            .map(|(_, word, _)| word)
+            .collect();
+        assert_eq!(hello, ["hel-o", "helo", "HELO"]);
+    }
+
+    #[test]
+    fn one_edit_away_returns_every_spelling_once() {
+        let list = WordList::parse("está\testa\t900\nesta\testa\t800\nfeed\n").unwrap();
+        let words: Vec<(&str, u32)> = list
+            .one_edit_away("esto")
+            .map(|(_, word, frequency)| (word, frequency))
+            .collect();
+        assert_eq!(words, [("está", 900), ("esta", 800)]);
+        assert_eq!(
+            list.one_edit_away("fed")
+                .map(|(_, word, _)| word)
+                .collect::<Vec<_>>(),
+            ["feed"]
+        );
     }
 }
