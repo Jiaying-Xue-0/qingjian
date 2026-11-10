@@ -217,6 +217,18 @@ fn english_completions_appear_when_pinyin_is_unlikely() {
 }
 
 #[test]
+fn english_frequency_reads_the_spelling_from_the_word_list_in_any_case() {
+    let words =
+        WordList::parse("hello\thello\t4720\nNASA\tnasa\t4400\ncan't\tcant\t5800\n").unwrap();
+    let engine = engine().with_english(words);
+    assert_eq!(engine.english_frequency("hello"), Some(4720));
+    assert_eq!(engine.english_frequency("Nasa"), Some(4400));
+    assert_eq!(engine.english_frequency("can't"), Some(5800));
+    assert_eq!(engine.english_frequency("cant"), None);
+    assert_eq!(engine.english_frequency("hola"), None);
+}
+
+#[test]
 fn english_mode_suggests_from_the_word_list_and_keeps_the_typed_text() {
     let words = WordList::parse(
         "company\tcompany\t900\ncompare\tcompare\t500\nhello\thello\t1000\nhelp\thelp\t700\n",

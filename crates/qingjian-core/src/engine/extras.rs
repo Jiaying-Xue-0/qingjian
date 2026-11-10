@@ -147,6 +147,17 @@ impl Engine {
             && english::autocorrects(&self.english_lists(), self.composition.scope(), best)
     }
 
+    pub fn english_frequency(&self, word: &str) -> Option<u32> {
+        let code = english::fold_code(word);
+        let lowered = word.to_lowercase();
+        self.english_lists()
+            .iter()
+            .flat_map(|list| list.spellings(&code))
+            .filter(|(spelling, _)| spelling.to_lowercase() == lowered)
+            .map(|(_, frequency)| frequency)
+            .max()
+    }
+
     /// 给英文候选用的词表，个人的在前、随包的在后；一张都没有就是空。
     pub(super) fn english_lists(&self) -> Vec<&WordList> {
         self.learner
