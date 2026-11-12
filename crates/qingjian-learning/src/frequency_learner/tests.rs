@@ -296,3 +296,21 @@ fn english_words_round_trip_through_tsv_and_form_a_word_list() {
     let saved = std::fs::read_to_string(FrequencyLearner::english_path(&path)).unwrap();
     assert!(saved.contains("gist\t2"));
 }
+
+#[test]
+fn a_personal_english_word_drops_capitals_once_typed_in_lowercase() {
+    let mut learner = FrequencyLearner::default();
+    learner.learn_english("Sure");
+    learner.learn_english("sure");
+    learner.learn_english("THE");
+    learner.learn_english("The");
+    learner.learn_english("Gist");
+    learner.learn_english("gist");
+    learner.learn_english("gist");
+    learner.learn_english("Gist");
+    let words = learner.user_english().unwrap();
+    assert_eq!(words.get("sure"), Some("sure"));
+    assert_eq!(words.get("the"), Some("The"));
+    assert_eq!(words.get("gist"), Some("gist"));
+}
+

@@ -40,7 +40,7 @@ impl Engine {
         // 不像话的拼音试全部一处编辑；末尾单字母的只试相邻换位（`mingtain` → `mingtian`），其余合法拼音不碰
         let candidates = if correction::unlikely_pinyin(segmentations.first(), tail) {
             correction::candidates(scope)
-        } else if correction::trailing_single_letter(segmentations.first()) {
+        } else if correction::suspicious_ending(&segmentations) {
             correction::transposition_candidates(scope)
         } else {
             return None;

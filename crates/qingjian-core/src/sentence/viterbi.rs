@@ -114,6 +114,7 @@ pub fn convert_with(
         personal,
         weight,
         cost,
+        |_, _| 0.0,
         cache,
     )
     .into_iter()
@@ -131,6 +132,7 @@ pub fn convert_paths(
     personal: Personal<'_>,
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
+    reading: impl Fn(&str, u32) -> f64,
     cache: &mut SpanCache,
 ) -> Vec<Conversion> {
     let Some((last, head)) = positions.split_last() else {
@@ -189,9 +191,16 @@ pub fn convert_paths(
             any = true;
             for hit in hits.iter() {
                 let bonus = weight_bonus(weight(&hit.text));
+                let share = reading(&hit.text, hit.frequency);
                 let fallback = fallback_log_prob(hit.frequency, log_total);
-                let (score, back) =
-                    best_predecessor(&nodes, start, &hit.text, model, personal, fallback);
+                let (score, back) = best_predecessor(
+                    &nodes,
+                    start,
+                    &hit.text,
+                    model,
+                    personal,
+                    fallback - share,
+                );
                 let previous = &nodes[start][back];
                 let penalty = previous.penalty + hit.penalty;
                 let static_step = model
@@ -202,7 +211,7 @@ pub fn convert_paths(
                     start,
                     text: hit.text.clone(),
                     syllables: hit.syllables.clone(),
-                    score: score + bonus - hit.penalty,
+                    score: score + bonus - hit.penalty + share,
                     static_score,
                     back,
                     placeholder: false,

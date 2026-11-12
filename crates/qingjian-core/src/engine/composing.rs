@@ -361,7 +361,8 @@ impl Engine {
         let english_word = looks_like_english_word(&raw, self.english_mode)
             && (self.english_mode || self.decode(&raw).is_none_or(|d| !d.is_complete()));
         if english_word && self.learn_english {
-            self.learner.learn_english(&raw);
+            let learned = self.english_learning_form(&raw);
+            self.learner.learn_english(&learned);
         }
         self.meter_commit(&raw, InputSource::Raw, english_word);
         self.composition.clear();

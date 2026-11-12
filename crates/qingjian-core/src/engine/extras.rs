@@ -147,6 +147,22 @@ impl Engine {
             && english::autocorrects(&self.english_lists(), self.composition.scope(), best)
     }
 
+    pub fn english_learning_form(&self, word: &str) -> String {
+        let Some(words) = self.english.as_ref() else {
+            return word.to_owned();
+        };
+        let code = english::fold_code(word);
+        let lowered = word.to_lowercase();
+        if words.spellings(&code).any(|(spelling, _)| spelling == lowered) {
+            return lowered;
+        }
+        let shouted = word.chars().filter(|c| c.is_alphabetic()).count() > 1 && !word.chars().any(char::is_lowercase);
+        match words.get(&code) {
+            Some(listed) if shouted => listed.to_owned(),
+            _ => word.to_owned(),
+        }
+    }
+
     pub fn english_frequency(&self, word: &str) -> Option<u32> {
         let code = english::fold_code(word);
         let lowered = word.to_lowercase();

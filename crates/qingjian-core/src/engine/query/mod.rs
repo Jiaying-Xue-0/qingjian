@@ -178,7 +178,7 @@ impl Engine {
         };
         // 拼音「不像话」时试拼写纠错；纠正生效则按纠正后的切分查词，原串只用来记学习与显示
         let unlikely = correction::unlikely_pinyin(segmentations.first(), tail)
-            || correction::trailing_single_letter(segmentations.first());
+            || correction::suspicious_ending(&segmentations);
         let correction = if unlikely {
             self.active_correction(scope)
         } else {
@@ -652,6 +652,7 @@ impl Engine {
             self.personal(),
             |text| self.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
+            |text, frequency| self.reading_log_share(text, frequency),
             &mut self.span_cache.borrow_mut(),
         );
         // 与最优路径差得太远的不参与：那种差距多半是个人 n-gram 拉开的

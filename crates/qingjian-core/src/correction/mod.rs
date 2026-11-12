@@ -72,6 +72,18 @@ pub fn trailing_single_letter(best: Option<&Segmentation>) -> bool {
     })
 }
 
+pub fn suspicious_ending(segmentations: &[Segmentation]) -> bool {
+    let Some(best) = segmentations.first() else {
+        return false;
+    };
+    trailing_single_letter(Some(best))
+        && !segmentations.iter().any(|other| {
+            other.syllables.len() == best.syllables.len()
+                && other.incomplete_count() == 0
+                && !trailing_single_letter(Some(other))
+        })
+}
+
 /// `input` 的全部候选纠正：一处编辑之后能完整切分的变体，顺序同 [`variants`]（换位最先）。
 pub fn candidates(input: &str) -> Vec<Correction> {
     candidates_from(input, variants(input))

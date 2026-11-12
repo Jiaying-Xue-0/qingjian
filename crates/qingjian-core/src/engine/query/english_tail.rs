@@ -55,7 +55,7 @@ impl Engine {
         }
         let full = parser::segment(scope).ok();
         let unlikely = correction::unlikely_pinyin(full.as_ref().and_then(|s| s.first()), "")
-            || correction::trailing_single_letter(full.as_ref().and_then(|s| s.first()));
+            || full.as_deref().is_some_and(correction::suspicious_ending);
         if full.is_none() || unlikely {
             // 拼写纠错能把整段纠成通顺的拼音（`shiide` → 是的，`yingagi` → 应该）：那是敲错，不是英文
             if self.active_correction(scope).is_some() {

@@ -103,6 +103,10 @@ impl Learner for FrequencyLearner {
             .english
             .entry(word.to_ascii_lowercase())
             .or_insert_with(|| (word.to_owned(), 0));
+        let shouted = entry.0.chars().filter(|c| c.is_alphabetic()).count() > 1 && !entry.0.chars().any(char::is_lowercase);
+        if shouted || !word.chars().any(char::is_uppercase) {
+            word.clone_into(&mut entry.0);
+        }
         entry.1 += 1;
         let count = entry.1;
         self.english_dirty = true;

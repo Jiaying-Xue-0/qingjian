@@ -150,7 +150,8 @@ impl Engine {
                 if candidate.kind == CandidateKind::English {
                     self.learner.record(candidate);
                     if self.learn_english {
-                        self.learner.learn_english(&candidate.text);
+                        let learned = self.english_learning_form(&candidate.text);
+                        self.learner.learn_english(&learned);
                     }
                 }
                 self.whole_scope()
@@ -215,7 +216,8 @@ impl Engine {
                 Some(words) => {
                     // 句末的英文词（我想学好rust 的 rust）记进个人英文词表，和英文候选上屏一样
                     if let Some(word) = words.last().filter(|w| is_english_word(w)) {
-                        self.learner.learn_english(&word.text);
+                        let learned = self.english_learning_form(&word.text);
+                        self.learner.learn_english(&learned);
                     }
                     // 紧接着同一段拼音里自选的词（`jidiaole` 选了 挤，剩下的 掉了 走整句）：接缝是用户自己定的，
                     // 第一个词的转移按自选记双份。不参与两词造词：我 + 的… 这种接缝太常见、转移计数早就够了，
