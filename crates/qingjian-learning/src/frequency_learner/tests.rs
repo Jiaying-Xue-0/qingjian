@@ -313,4 +313,3 @@ fn a_personal_english_word_drops_capitals_once_typed_in_lowercase() {
     assert_eq!(words.get("the"), Some("The"));
     assert_eq!(words.get("gist"), Some("gist"));
 }
-

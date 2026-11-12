@@ -650,6 +650,7 @@ impl Engine {
             k,
             &*self.language_model,
             self.personal(),
+            self.chain.context(),
             |text| self.learner.weight(text),
             |index, syllable| expanded.cost(index, syllable),
             |text, frequency| self.reading_log_share(text, frequency),

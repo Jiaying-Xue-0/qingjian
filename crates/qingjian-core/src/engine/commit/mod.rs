@@ -39,9 +39,10 @@ impl Engine {
             candidate.translation = match candidate.kind {
                 CandidateKind::Custom(_) => None,
                 // 英文候选按敲的大小写显示（Company / COMPANY），释义表键是小写
-                CandidateKind::English => self.english_translator.translate(text).or_else(|| {
-                    self.english_translator.translate(&text.to_lowercase())
-                }),
+                CandidateKind::English => self
+                    .english_translator
+                    .translate(text)
+                    .or_else(|| self.english_translator.translate(&text.to_lowercase())),
                 _ => self.translator.translate(text).map(|mut translation| {
                     self.mark_fresh(&mut translation);
                     translation

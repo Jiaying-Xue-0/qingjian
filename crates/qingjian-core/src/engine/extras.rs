@@ -153,10 +153,14 @@ impl Engine {
         };
         let code = english::fold_code(word);
         let lowered = word.to_lowercase();
-        if words.spellings(&code).any(|(spelling, _)| spelling == lowered) {
+        if words
+            .spellings(&code)
+            .any(|(spelling, _)| spelling == lowered)
+        {
             return lowered;
         }
-        let shouted = word.chars().filter(|c| c.is_alphabetic()).count() > 1 && !word.chars().any(char::is_lowercase);
+        let shouted = word.chars().filter(|c| c.is_alphabetic()).count() > 1
+            && !word.chars().any(char::is_lowercase);
         match words.get(&code) {
             Some(listed) if shouted => listed.to_owned(),
             _ => word.to_owned(),

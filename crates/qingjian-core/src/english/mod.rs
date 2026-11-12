@@ -177,9 +177,16 @@ mod tests {
 
     #[test]
     fn every_spelling_of_the_typed_letters_comes_before_completions() {
-        let list = WordList::parse("está\testa\t900\nesta\testa\t800\nestación\testacion\t700\n").unwrap();
-        assert_eq!(suggest(&[&list], "esta", |_| 0, 9), ["está", "esta", "estación"]);
-        assert_eq!(suggest(&[&list], "Esta", |_| 0, 9), ["Está", "Esta", "Estación"]);
+        let list =
+            WordList::parse("está\testa\t900\nesta\testa\t800\nestación\testacion\t700\n").unwrap();
+        assert_eq!(
+            suggest(&[&list], "esta", |_| 0, 9),
+            ["está", "esta", "estación"]
+        );
+        assert_eq!(
+            suggest(&[&list], "Esta", |_| 0, 9),
+            ["Está", "Esta", "Estación"]
+        );
         assert_eq!(suggest(&[&list], "esta", |_| 0, 1), ["está"]);
     }
 

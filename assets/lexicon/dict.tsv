@@ -1411,7 +1411,7 @@
 下半旗	xia ban qi	65
 下半时	xia ban shi	14
 下半月	xia ban yue	45
-下单	xia dan	89
+下单	xia dan	8000
 下卷	xia juan	146
 下厨	xia chu	935
 下去	xia qu	35602
@@ -14787,7 +14787,7 @@
 包辣	bao la	24
 包辣条	bao la tiao	512
 包退	bao tui	29
-包邮	bao you	3443
+包邮	bao you	5000
 包邮哦	bao you o	251
 包金	bao jin	7
 包销	bao xiao	6
@@ -20594,7 +20594,7 @@
 哥白尼	ge bai ni	138
 哥老会	ge lao hui	37
 哥谭	ge tan	121
-哦	e	125449
+哦	e	1000
 哦	o	195142
 哧	chi	114
 哧溜	chi liu	32
@@ -35370,7 +35370,7 @@
 微不足道	wei bu zu dao	301
 微东	wei dong	466
 微乎其微	wei hu qi wei	125
-微信	wei xin	716
+微信	wei xin	80000
 微信公众号	wei xin gong zhong hao	272
 微信支付	wei xin zhi fu	89
 微信朋友圈	wei xin peng you quan	60
@@ -36555,7 +36555,7 @@
 恨晚	hen wan	62
 恨铁不成钢	hen tie bu cheng gang	145
 恩	en	87904
-恩人	en ren	69
+恩人	en ren	3000
 恩仇	en chou	169
 恩佐	en zuo	157
 恩典	en dian	311
@@ -36569,7 +36569,7 @@
 恩师	en shi	204
 恩德	en de	351
 恩怨	en yuan	324
-恩情	en qing	129
+恩情	en qing	1500
 恩惠	en hui	271
 恩断义绝	en duan yi jue	110
 恩施	en shi	693
@@ -40961,7 +40961,7 @@
 挂住	gua zhu	459
 挂冠	gua guan	23
 挂历	gua li	8
-挂号	gua hao	30
+挂号	gua hao	5000
 挂号信	gua hao xin	13
 挂号处	gua hao chu	22
 挂名	gua ming	223
@@ -42808,7 +42808,7 @@
 支	zhi	14307
 支书	zhi shu	365
 支付	zhi fu	4428
-支付宝	zhi fu bao	266
+支付宝	zhi fu bao	15000
 支全	zhi quan	9
 支全垒	zhi quan lei	527
 支全垒打	zhi quan lei da	527
@@ -54951,7 +54951,7 @@
 淑静	shu jing	47
 淖	nao	312
 淘	tao	2353
-淘宝	tao bao	200
+淘宝	tao bao	20000
 淘气	tao qi	1951
 淘气包	tao qi bao	44
 淘气鬼	tao qi gui	31
@@ -71908,7 +71908,7 @@
 自打	zi da	237
 自找	zi zhao	433
 自投罗网	zi tou luo wang	42
-自拍	zi pai	159
+自拍	zi pai	8000
 自拔	zi ba	2017
 自持	zi chi	122
 自控	zi kong	223
@@ -79248,7 +79248,7 @@
 账册	zhang ce	5
 账务	zhang wu	19
 账单	zhang dan	346
-账号	zhang hao	777
+账号	zhang hao	3000
 账套	zhang tao	20
 账户	zhang hu	687
 账房	zhang fang	27
@@ -83249,7 +83249,7 @@
 通讯网	tong xun wang	8
 通论	tong lun	66
 通识	tong shi	458
-通话	tong hua	1191
+通话	tong hua	6000
 通话记录	tong hua ji lu	65
 通读	tong du	41
 通货	tong huo	56
@@ -92844,3 +92844,6 @@ T台	t tai	1500
 优惠券	you hui quan	5000
 螺蛳粉	luo si fen	3000
 还钱	huan qian	8000
+接你	jie ni	5000
+不回我	bu hui wo	8000
+已读不回	yi du bu hui	5000

@@ -50,6 +50,9 @@ TSV 解析、查询与生成工具把 `lue` / `nue` 统一成 `lve` / `nve`。
   有「每个音节都完整、末尾不是落单单字母」的变体时残尾变体不参与，免得 `keyyi` 的 可以 被 `ke yi y…` 抢走），
   纠正之间比较时换位减 `TypoCosts::correction_transpose_discount`（1 nat，CLI `--tune correction-transpose=`），与原样比不减；
   2026-09-15 回放 283 词 / 23 句：词首选 89.0%、整句 82.6%，与改前持平（折扣若也用在与原样比，`zhongwne` 会误纠成 中文，整句掉一条）。
+- 整句转换（`sentence::convert_paths`）的起点是学习链上一个上屏的词（参数 `origin`，引擎传 `chain.context()`）：第一个词按「上一个词 → 这个词」算，
+  与词级排序用同一个上文（来 上屏后打 `jieni` 出 接你，不再按句首出 姐你）。路径上的单字按 `reading_log_share` 加这个读音的份额
+  （语言模型只认字不认读音，说 也念 shui / yue：`nishuilema` 不再出 你说了吗），模型没见过、按读音词频兜底的那一步不重复扣。
 
 `EngineSession` 保存可挂起的组句、标点、历史与学习链，`Engine::swap_session` 在同一个引擎里交换输入状态，共用词库与落盘服务。切换上下文时清除查询及异步预测缓存，并由平台恢复各自私密状态。
 

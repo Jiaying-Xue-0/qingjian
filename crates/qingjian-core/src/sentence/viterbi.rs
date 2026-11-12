@@ -112,6 +112,7 @@ pub fn convert_with(
         1,
         model,
         personal,
+        Context::START,
         weight,
         cost,
         |_, _| 0.0,
@@ -130,6 +131,7 @@ pub fn convert_paths(
     k: usize,
     model: &dyn LanguageModel,
     personal: Personal<'_>,
+    origin: Context<'_>,
     weight: impl Fn(&str) -> u32,
     cost: impl Fn(usize, &str) -> f64,
     reading: impl Fn(&str, u32) -> f64,
@@ -199,13 +201,17 @@ pub fn convert_paths(
                     &hit.text,
                     model,
                     personal,
+                    origin,
                     fallback - share,
                 );
                 let previous = &nodes[start][back];
                 let penalty = previous.penalty + hit.penalty;
-                let static_step = model
-                    .log_prob((start > 0).then_some(previous.text.as_str()), &hit.text)
-                    .unwrap_or(fallback);
+                let before = if start > 0 {
+                    Some(previous.text.as_str())
+                } else {
+                    origin.previous
+                };
+                let static_step = model.log_prob(before, &hit.text).unwrap_or(fallback);
                 let static_score = previous.static_score + static_step;
                 nodes[end].push(Node {
                     start,
@@ -228,6 +234,7 @@ pub fn convert_paths(
                 text,
                 &NoModel,
                 Personal::NONE,
+                origin,
                 UNKNOWN_LOG_PROB,
             );
             let penalty = nodes[start][back].penalty;
@@ -360,17 +367,21 @@ fn best_predecessor(
     word: &str,
     model: &dyn LanguageModel,
     personal: Personal<'_>,
+    origin: Context<'_>,
     fallback: f64,
 ) -> (f64, usize) {
     let mut best = (f64::NEG_INFINITY, 0);
     for (index, previous) in nodes[start].iter().enumerate() {
         let context = if start == 0 {
-            Context::START
+            origin
         } else {
             Context {
                 previous: Some(previous.text.as_str()),
-                earlier: (previous.start > 0)
-                    .then(|| nodes[previous.start][previous.back].text.as_str()),
+                earlier: if previous.start > 0 {
+                    Some(nodes[previous.start][previous.back].text.as_str())
+                } else {
+                    origin.previous
+                },
             }
         };
         let score = previous.score + transition_log_prob(model, personal, context, word, fallback);
@@ -573,6 +584,31 @@ mod tests {
         .unwrap();
         assert_eq!(conversion.text, "我翔");
         assert_eq!(conversion.word_count(), 2);
+    }
+
+    #[test]
+    fn first_word_follows_the_word_committed_before() {
+        let dictionary = Dictionary::parse(SAMPLE).unwrap();
+        let patterns = complete(&["xiang"]);
+        let text = |origin: Context<'_>| {
+            convert_paths(
+                &[&dictionary],
+                &patterns,
+                false,
+                1,
+                &XiangModel,
+                Personal::NONE,
+                origin,
+                |_| 0,
+                |_, _| 0.0,
+                |_, _| 0.0,
+                &mut SpanCache::default(),
+            )
+            .remove(0)
+            .text
+        };
+        assert_eq!(text(Context::START), "想");
+        assert_eq!(text(Context::after("我")), "翔");
     }
 
     #[test]
